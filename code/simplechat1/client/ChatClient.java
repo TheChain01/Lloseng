@@ -25,7 +25,8 @@ public class ChatClient extends AbstractClient
    * The interface type variable.  It allows the implementation of 
    * the display method in the client.
    */
-  ChatIF clientUI; 
+  ChatIF clientUI;
+  String username;
 
   
   //Constructors ****************************************************
@@ -38,12 +39,14 @@ public class ChatClient extends AbstractClient
    * @param clientUI The interface type variable.
    */
   
-  public ChatClient(String host, int port, ChatIF clientUI) 
+  public ChatClient(String username, String host, int port, ChatIF clientUI)
     throws IOException 
   {
     super(host, port); //Call the superclass constructor
     this.clientUI = clientUI;
+    this.username = username;
     openConnection();
+    sendToServer("#login <" + username + ">");
   }
 
   
@@ -64,20 +67,77 @@ public class ChatClient extends AbstractClient
    *
    * @param message The message from the UI.    
    */
-  public void handleMessageFromClientUI(String message)
-  {
-    try
-    {
-      sendToServer(message);
-    }
-    catch(IOException e)
-    {
-      clientUI.display
-        ("Could not send message to server.  Terminating client.");
-      quit();
+  public void handleMessageFromClientUI(String message) {
+    if (message.startsWith("#")) {
+      String[] parameters = message.split(" ");
+      String command = parameters[0];
+      switch (command) {
+        case "#quit":
+          quit();
+          break;
+        case "#logoff":
+          try {
+            closeConnection();
+          } catch (IOException e) {
+            System.out.println("Error closing connection!!!");
+          }
+          break;
+        case "#sethost":
+          if (this.isConnected()) {
+            System.out.println("Couldn't execute command, client already connected.");
+          } else {
+            this.setHost(parameters[1]);
+          }
+          break;
+        case "#setport":
+          if (this.isConnected()) {
+            System.out.println("Couldn't execute command, client already connected.");
+          } else {
+            this.setPort(Integer.parseInt(parameters[1]));
+          }
+          break;
+        case "#login":
+          if (this.isConnected()) {
+            System.out.println("Couldn't execute command, client already connected.");
+          } else {
+            try {
+              this.openConnection();
+              sendToServer("#login <" + this.username + ">");
+
+            } catch (IOException e) {
+              System.out.println("Error opening connection to server. Check the server status!");
+            }
+          }
+          break;
+        case "#gethost":
+          System.out.println("Current host is " + this.getHost());
+          break;
+        case "#getport":
+          System.out.println("Current port is " + this.getPort());
+          break;
+        default:
+          System.out.println("Invalid command: '" + command + "'");
+          break;
+      }
+    } else {
+      try {
+        sendToServer(message);
+      } catch (IOException e) {
+        clientUI.display
+                ("Could not send message to server.  Terminating client.");
+        quit();
+      }
     }
   }
-  
+
+
+  public void connectionClosed() {
+    System.out.println("Connection from the Server got Terminated.");
+  }
+  public void connectionException(Exception exception) {
+    System.out.println("The server is shutting down. Initiating disconnection!\n");
+    quit();
+  }
   /**
    * This method terminates the client.
    */
